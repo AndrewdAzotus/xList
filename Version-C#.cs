@@ -50,6 +50,9 @@
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
     public class xList : IEnumerable<xList.xListRowEntry>
     {
+        public static readonly Char LeftBrkt = (char)171; // <<
+        public static readonly Char RghtBrkt = (char)187; // >>
+    
         adDBDefns defn;
         SqlConnection sqlCxn;
         DataTable xListTable;
@@ -59,16 +62,6 @@
         String xlTitle = "";
         Boolean _AutoSave;
         //String _dbName;
-
-        #region delegates
-        // experimentation with Delegates
-        delegate string ConcatDelegate(string input);
-
-        static string DisplayTitle1(string title)
-        {
-            return adFns.LeftBrkt + title + adFns.RghtBrkt;
-        }
-        #endregion
 
         public class xListRowEntry
         {
@@ -175,7 +168,7 @@
                         dr["EntryValue"] = sqlRdr["EntryValue"];
                         dr["EntryWhen"] = sqlRdr["EntryWhen"];
                         dr["EntryFlag"] = sqlRdr["EntryFlag"];
-                        dr["EntryDescr"] = adFns.LeftBrkt + xlTitle + adFns.RghtBrkt;
+                        dr["EntryDescr"] = LeftBrkt + xlTitle + RghtBrkt;
                         dr["Updated"] = false;
                         dr["Inserted"] = false;
                         xListTable.Rows.Add(dr);
@@ -205,7 +198,7 @@
                     dr["EntryValue"] = System.DBNull.Value;
                     dr["EntryWhen"] = System.DBNull.Value;
                     dr["EntryFlag"] = System.DBNull.Value;
-                    dr["EntryDescr"] = adFns.LeftBrkt + xlTitle + adFns.RghtBrkt;
+                    dr["EntryDescr"] = LeftBrkt + xlTitle + RghtBrkt;
                     dr["Updated"] = false;
                     dr["Inserted"] = (xListTable.Rows.Count == 0); // if a brand new xlist then init the title???
                     xListTable.Rows.InsertAt(dr, 0);
@@ -348,8 +341,8 @@
                 if (rw.Length > 0)
                     rc = rw[0]["EntryDescr"].ToString();
                 else
-                    rc = adFns.LeftBrkt + xlTitle + adFns.RghtBrkt;
-                //return adFns.LeftBrkt + rc + adFns.RghtBrkt;
+                    rc = LeftBrkt + xlTitle + RghtBrkt;
+                //return LeftBrkt + rc + RghtBrkt;
                 return rc;
             }
             set
@@ -359,9 +352,9 @@
                 if (rw.Length > 0)
                 {
                     Int32 idx = Convert.ToInt32(rw[0]["ListIdx"]);
-                    if (xlTitle.Substring(0, 1) == adFns.LeftBrkt.ToString())
+                    if (xlTitle.Substring(0, 1) == LeftBrkt.ToString())
                         xlTitle = xlTitle.Substring(1);
-                    if (xlTitle.Substring(xlTitle.Length - 1) == adFns.RghtBrkt.ToString())
+                    if (xlTitle.Substring(xlTitle.Length - 1) == RghtBrkt.ToString())
                         xlTitle = xlTitle.Substring(0, xlTitle.Length - 2);
                     rw[0]["EntryDescr"] = xlTitle;
                     rw[0]["Updated"] = true;
