@@ -1,4 +1,7 @@
-﻿
+﻿#define MSSQL
+#if (MSSQL == false)
+#define MySQL
+#endif
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -8,42 +11,154 @@ using System.Linq;
 //using System.Threading.Tasks;
 using System.Xml;
 
+#if MSSQL
+#endif
+#if MySQL
+#endif
+
+
+#if MSSQL
+using System.Data.SqlClient;
+#endif
+#if MySQL
 using MySql.Data.MySqlClient;
+#endif
 
 // - finish separating constructor and initialiser
 // - alter flag and value to return 0 when tbl value is null
-/*
--- ================================================
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
--- =============================================
-Alter PROCEDURE xSubList
-       @ListName nvarchar(255) = null
-AS
 
-BEGIN
-  SET NOCOUNT ON;
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * Create Command [MS SQL Server] - use Alt-Shift-Cursor-Arrow-Keys to select for copy and paste
+ * 
+ * CREATE TABLE [dbo].[xList](
+ * 	[Idx] [int] IDENTITY(1,1) NOT NULL,
+ * 	[ListType] [int] NOT NULL,
+ * 	[ListIdx] [int] NOT NULL,
+ * 	[EntryDescr] [nvarchar](256) NOT NULL,
+ * 	[EntryParm] [nvarchar](256) NULL,
+ * 	[EntryValue] [int] NULL,
+ * 	[EntryWhen] [date] NULL,
+ * 	[EntryFlag] [tinyint] NULL,
+ *  CONSTRAINT [xList_Idx] PRIMARY KEY CLUSTERED 
+ * (
+ * 	[Idx] ASC
+ * )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
+ *  CONSTRAINT [xListTypeDescr] UNIQUE NONCLUSTERED 
+ * (
+ * 	[ListType] ASC,
+ * 	[EntryDescr] ASC
+ * )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
+ *  CONSTRAINT [xListTypeIdx] UNIQUE NONCLUSTERED 
+ * (
+ * 	[ListType] ASC,
+ * 	[ListIdx] ASC
+ * )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+ * ) ON [PRIMARY]
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * CREATE PROCEDURE [dbo].[xSubList]
+ * -- Add the parameters for the stored procedure here
+ * @ListName nvarchar(255) = null
+ * AS
+ * BEGIN
+ * 
+ * -- SET NOCOUNT ON added to prevent extra result sets from
+ * -- interfering with SELECT statements.
+ * SET NOCOUNT ON;
+ * 
+ * -- Insert statements for procedure here
+ * if @ListName is null
+ *     SELECT * from xList where ListType = 0
+ * else
+ *     SELECT * from xList where ListType = (Select ListIdx from xList where ListType=0 and EntryDescr = @ListName)
+ * END
+ * 
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-  if @ListName is null
-    SELECT * from xList where ListType = 0
-  else
-    SELECT * from xList where ListType = (Select ListIdx from xList where ListType=0 and EntryDescr = @ListName)
-END
-GO
--- =============================================
-*/
-
-namespace CentralRepositoryAuthPayments
+namespace CentralRepositoryAuthPayments // xList
 {
+    public class Defns
+    {
+        public static readonly String LeftBrkt = ((char)171).ToString();
+        public static readonly String RghtBrkt = ((char)187).ToString();
+
+        public static string sqlCxn(String dbName)
+        {
+            String strCxn = "database=" + dbName + ";";
+
+            return strCxn;
+        }
+
+        private string _dbName = null;
+        private string _dbUser = null;
+        private string _dbPswd = null;
+        private string _dbSrvr = null;
+        Int16 _dbPort = -1;                         // only used for Mysql
+
+        public Defns(
+            string dbName = "Common", 
+            string dbUser = "",
+            string dbPswd = "",
+            string dbSrvr = "localhost",
+#if MSSQL
+            Int16 dbPort = -1
+#endif
+#if MySQL
+            Int16 dbPort = 3306
+#endif
+            )
+        {
+            _dbName = dbName;
+            _dbUser = dbUser;
+            _dbPswd = dbPswd;
+            _dbSrvr = dbSrvr;
+            _dbPort = dbPort;
+        }
+        public String CxnDtls()
+        {
+            string strCxn = "";
+
+            strCxn += $"database={_dbName};";
+            strCxn += "user=" + _dbUser + ";";
+            strCxn += "password=" + _dbPswd + ";";
+            strCxn += "server=" + _dbSrvr + ";";
+            if (_dbPort >= 0)
+                strCxn += "port=" + _dbPort.ToString() + ";";
+
+            return strCxn;
+        }
+        public string CxnDtls(string databaseName = "")
+        {
+            if (databaseName == "") { databaseName = _dbName; }
+            string strCxn = "";
+            if (databaseName != "")
+            {
+                strCxn += "database=" + databaseName + ";";
+                strCxn += "user=palmAdmin;";
+                strCxn += "password=Beach;";
+                strCxn += "server=localhost;";
+                strCxn += "port=" + _dbPort.ToString() + ";";
+            }
+            return strCxn;
+        }
+    }
     public class xList : IEnumerable<xList.xListRowEntry>
     {
         Defns _defn;
         bool SQLCxnOpened = false;
+#if MSSQL
+        SqlConnection _sqlCxn;
+        SqlCommand sqlCmd;
+        SqlDataReader sqlRdr;
+#endif
+#if MySQL
         MySqlConnection _sqlCxn;
         MySqlCommand sqlCmd;
         MySqlDataReader sqlRdr;
+#endif
 
         DataTable xListTable;
         Int32 _ListType = 1; // get overridden when xList is opened but defaults incase of new xList
@@ -97,7 +212,7 @@ namespace CentralRepositoryAuthPayments
             Flag = 5
         }
 
-        #region example code to init xList
+#region example code to init xList
         /*
             List<Dictionary<xList.Fld, Object>> initList = new List<Dictionary<xList.Fld, object>>();
             Dictionary<xList.Fld, Object> initData;
@@ -112,9 +227,9 @@ namespace CentralRepositoryAuthPayments
             initData.Add(xList.Fld.When, new DateTime(2016, 1, 1) );
             initList.Add(initData);
         */
-        #endregion
+#endregion
 
-        #region constructor
+#region constructor
         Boolean isTitleOnTable = false;
         DataRow dr;
         string sqlTxt;
@@ -123,18 +238,34 @@ namespace CentralRepositoryAuthPayments
                    , string initTitle = ""
                    , List<Dictionary<Fld, Object>> initValues = null
                    , Fld orderBy = Fld.Idx
-                   , String dbName = "Common", String dbUser = "", String dbPswd = ""
+                   , string dbName = "Common", string dbUser = "", string dbPswd = "", string dbCxnString = null
+#if MSSQL
+                   , SqlConnection sqlCxn = null
+#endif
+#if MySQL
                    , MySqlConnection sqlCxn = null
+#endif
                    , String andWhere = ""
                    )
         {
-            construct_xList_fst(ListName, AutoSave, orderBy, dbName, dbUser, dbPswd, sqlCxn, andWhere);
+            if (string.IsNullOrEmpty(dbCxnString))
+            {
+                _defn = new Defns(dbName: dbName, dbUser: dbUser, dbPswd: dbPswd);
+                dbCxnString = _defn.CxnDtls();
+            }
+            construct_xList_fst(ListName, AutoSave, orderBy, dbCxnString, sqlCxn, andWhere);
+
             if (ListName == "")
                 sqlTxt = "Select * from xList where ListType=0";
             else
             {
                 sqlTxt = "Select ListIdx from xList where ListType=0 and EntryDescr=@ED;";
+#if MSSQL
+                sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                 sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                 sqlCmd.Parameters.AddWithValue("@ED", _ListName);
                 sqlRdr = sqlCmd.ExecuteReader();
                 if (sqlRdr.Read())
@@ -155,19 +286,34 @@ namespace CentralRepositoryAuthPayments
 
                     // must get the next xList idx number from maxidx of listtype=0
                     sqlTxt = "Select max(ListIdx) from xList where ListType=0;";
+#if MSSQL
+                    sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                     sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                     int.TryParse(sqlCmd.ExecuteScalar().ToString(), out _ListType);
                     ++_ListType;
 
                     sqlTxt = "Insert xList (ListType,ListIdx,EntryDescr) Values(0,@LI,@ED);";
+#if MSSQL
+                    sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                     sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                     sqlCmd.Parameters.AddWithValue("@LI", _ListType);
                     sqlCmd.Parameters.AddWithValue("@ED", _ListName);
                     sqlCmd.ExecuteNonQuery();
                     if (initTitle != "")
                     {
                         sqlTxt = "Insert xList (ListType,ListIdx,EntryDescr) Values(@LT,0,@ED);";
+#if MSSQL
+                        sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                         sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                         sqlCmd.Parameters.AddWithValue("@LT", _ListType);
                         sqlCmd.Parameters.AddWithValue("@ED", initTitle);
                         sqlCmd.ExecuteNonQuery();
@@ -197,7 +343,12 @@ namespace CentralRepositoryAuthPayments
             sqlTxt += (orderBy == Fld.Idx ? "List" : "Entry") + orderBy.ToString();
             sqlTxt += ";";
 
+#if MSSQL
+            sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
             sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
             sqlCmd.Parameters.AddWithValue("@LT", _ListType);
             sqlRdr = sqlCmd.ExecuteReader();
 
@@ -276,26 +427,18 @@ namespace CentralRepositoryAuthPayments
                 _sqlCxn.Close();
         }
 
-        // the parms are not unique enough!!!
-        //public xList(string ListName = ""
-        //           , bool AutoSave = false
-        //           , string InitTitle = ""
-        //           , string[] InitDescrs = null
-        //           , Fld orderBy = Fld.Idx
-        //           , String dbName = "Common", String dbUser = "", String dbPswd = ""
-        //           , MySqlConnection sqlCxn = null
-        //           , String andWhere = ""
-        //           )
-        //{
-        //    construct_xList_fst(ListName, AutoSave, orderBy, dbName, dbUser, dbPswd, sqlCxn, andWhere);
-        //}
-
-        private void construct_xList_fst(string ListName=""
-                                        , bool AutoSave=false
-                   , Fld orderBy = Fld.Idx
-                   , String dbName = "Common", String dbUser = "", String dbPswd = ""
-                   , MySqlConnection sqlCxn = null
-                   , String andWhere = ""
+        private void construct_xList_fst(
+            string ListName = ""
+          , bool AutoSave = false
+          , Fld orderBy = Fld.Idx
+          , string dbCxnString = null
+#if MSSQL
+          , SqlConnection sqlCxn = null
+#endif
+#if MySQL
+          , MySqlConnection sqlCxn = null
+#endif
+          , string andWhere = ""
             )
         {
             //Boolean 
@@ -317,11 +460,20 @@ namespace CentralRepositoryAuthPayments
 
             if (sqlCxn == null)
             {
-                _defn = new Defns(dbName, dbUser, dbPswd);
+#if MSSQL
+                _sqlCxn = new SqlConnection(dbCxnString);
+#endif
+#if MySQL
                 _sqlCxn = new MySqlConnection(_defn.cxn());
+#endif
             }
             else
+#if MSSQL
+                _sqlCxn = new SqlConnection(sqlCxn.ConnectionString);
+#endif
+#if MySQL
                 _sqlCxn = (MySqlConnection)sqlCxn.Clone();
+#endif
             if (_sqlCxn.State == ConnectionState.Closed)
             {
                 _sqlCxn.Open();
@@ -337,9 +489,9 @@ namespace CentralRepositoryAuthPayments
         {
 
         }
-        #endregion
+#endregion
 
-        #region item addressable
+#region item addressable
         public Object this[String Descr, Fld fld = Fld.Param, Boolean useListIdx = false]
         {
             get
@@ -446,7 +598,7 @@ namespace CentralRepositoryAuthPayments
                 return new xListRowEntry(xListTable.Rows[Idx]);
             }
         }
-        #endregion
+#endregion
 
         // 'built-in' methods
         public Boolean isAutoSaveOn { get { return _AutoSave; } }
@@ -500,13 +652,13 @@ namespace CentralRepositoryAuthPayments
                     rc = rw[0]["EntryDescr"].ToString();
                 else
                     rc = xlTitle;
-                return Azotus.Defns.LeftBrkt + rc + Azotus.Defns.RghtBrkt;
+                return Defns.LeftBrkt + rc + Defns.RghtBrkt;
             }
             set
             {
                 xlTitle = value;
-                if (xlTitle.Substring(0, 1) == Azotus.Defns.LeftBrkt) { xlTitle = xlTitle.Substring(1); }
-                if (xlTitle.Substring(xlTitle.Length-1, 1) == Azotus.Defns.RghtBrkt) { xlTitle = xlTitle.Substring(0, xlTitle.Length - 1); }
+                if (xlTitle.Substring(0, 1) == Defns.LeftBrkt) { xlTitle = xlTitle.Substring(1); }
+                if (xlTitle.Substring(xlTitle.Length-1, 1) == Defns.RghtBrkt) { xlTitle = xlTitle.Substring(0, xlTitle.Length - 1); }
                 DataRow[] rw = xListTable.Select("ListIdx=0");
                 if (rw.Length > 0)
                 {
@@ -757,7 +909,12 @@ namespace CentralRepositoryAuthPayments
             bool rc = false;
             string sqlTxt1 = "Insert xList (ListType";
             string sqlTxt2 = ") Values(@ListType";
+#if MSSQL
+            sqlCmd = new SqlCommand("", _sqlCxn);
+#endif
+#if MySQL
             sqlCmd = new MySqlCommand("", _sqlCxn);
+#endif
 
             foreach (KeyValuePair<Fld, Object> xListEntry in xListRow)
             {
@@ -788,14 +945,24 @@ namespace CentralRepositoryAuthPayments
             if (!Contains(xListRow["EntryDescr"].ToString()))
             {
                 String sqlTxt;
-                MySqlCommand sqlCmd;
+//                MySqlCommand sqlCmd;
 
                 sqlTxt = "Select Max(ListIdx) as mIdx where ListType=@T;";
+#if MSSQL
+                sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                 sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                 xlMaxIdx = Convert.ToInt32(sqlCmd.ExecuteScalar()) + 1;
 
                 sqlTxt = "Insert xList (ListType,ListIdx,EntryDescr,EntryParm,EntryValue,EntryWhen,EntryFlag) Values(@T,@I,@D,@P,@V,@W,@F);";
+#if MSSQL
+                sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
                 sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
                 sqlCmd.Parameters.AddWithValue("@T", _ListType);
                 sqlCmd.Parameters.AddWithValue("@I", xlMaxIdx);
                 sqlCmd.Parameters.AddWithValue("@D", xListRow["EntryDescr"]);
@@ -820,22 +987,27 @@ namespace CentralRepositoryAuthPayments
 
             if (!Contains(descr))
             {
-                MySqlCommand SQLCmd = new MySqlCommand();
+#if MSSQL
+                sqlCmd = new SqlCommand();
+#endif
+#if MySQL
+                sqlCmd = new MySqlCommand();
+#endif
                 string sqlTxt1 = "Insert xList (ListType,ListIdx,EntryDescr";
                 string sqlTxt2 = ") Values(@LT,@LI,@ED";
-                SQLCmd.Parameters.AddWithValue("@LT", _ListType);
-                SQLCmd.Parameters.AddWithValue("@LI", MaxIdx + 1);
-                SQLCmd.Parameters.AddWithValue("@ED", descr);
-                if (param != null) { sqlTxt1 += ",EntryParm"; sqlTxt2 += ",@EP"; SQLCmd.Parameters.AddWithValue("@EP", param); }
-                if (value.HasValue) { sqlTxt1 += ",EntryValue"; sqlTxt2 += ",@EV"; SQLCmd.Parameters.AddWithValue("@EV", value); }
-                if (when.HasValue) { sqlTxt1 += ",EntryWhen"; sqlTxt2 += ",@EW"; SQLCmd.Parameters.AddWithValue("@EW", when); }
-                if (flag.HasValue) { sqlTxt1 += ",EntryFlag"; sqlTxt2 += ",@EF"; SQLCmd.Parameters.AddWithValue("@EF", flag); }
+                sqlCmd.Parameters.AddWithValue("@LT", _ListType);
+                sqlCmd.Parameters.AddWithValue("@LI", MaxIdx + 1);
+                sqlCmd.Parameters.AddWithValue("@ED", descr);
+                if (param != null) { sqlTxt1 += ",EntryParm"; sqlTxt2 += ",@EP"; sqlCmd.Parameters.AddWithValue("@EP", param); }
+                if (value.HasValue) { sqlTxt1 += ",EntryValue"; sqlTxt2 += ",@EV"; sqlCmd.Parameters.AddWithValue("@EV", value); }
+                if (when.HasValue) { sqlTxt1 += ",EntryWhen"; sqlTxt2 += ",@EW"; sqlCmd.Parameters.AddWithValue("@EW", when); }
+                if (flag.HasValue) { sqlTxt1 += ",EntryFlag"; sqlTxt2 += ",@EF"; sqlCmd.Parameters.AddWithValue("@EF", flag); }
                 String sqlTxt = sqlTxt1 + sqlTxt2 + ");";
 
-                SQLCmd.Connection = _sqlCxn;
-                SQLCmd.CommandText = sqlTxt;
+                sqlCmd.Connection = _sqlCxn;
+                sqlCmd.CommandText = sqlTxt;
                 _sqlCxn.Open();
-                rc = (SQLCmd.ExecuteNonQuery() == 1);
+                rc = (sqlCmd.ExecuteNonQuery() == 1);
                 _sqlCxn.Close();
                 if (rc)
                 {
@@ -892,7 +1064,12 @@ namespace CentralRepositoryAuthPayments
             Boolean sqlCxnAlreadyOpen = true;
             Int32 rc = 0;
             String sqlTxt = "";
-            MySqlCommand sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#if MSSQL
+            sqlCmd = new SqlCommand(sqlTxt, _sqlCxn);
+#endif
+#if MySQL
+            sqlCmd = new MySqlCommand(sqlTxt, _sqlCxn);
+#endif
             //[+] only open if #updateds > 0!
             if (_sqlCxn.State != ConnectionState.Open)
             {
@@ -1161,7 +1338,7 @@ namespace CentralRepositoryAuthPayments
             }
         }
 
-        #region IEnumerator
+#region IEnumerator
         public xListRowEntry xListEntry(int idx)
         {
             return new xListRowEntry(xListTable.Rows[idx]);
@@ -1181,7 +1358,7 @@ namespace CentralRepositoryAuthPayments
             return this.GetEnumerator();
             // throw new NotImplementedException();
         }
-        #endregion
+#endregion
         
         /* xList:
          * v.1.1.001 - 04-Apr-2016 - AjD - Added xList title or ListName to data table
