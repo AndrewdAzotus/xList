@@ -1,7 +1,8 @@
-﻿#define MSSQL
+#define MSSQL
 #if (MSSQL == false)
 #define MySQL
 #endif
+
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -78,7 +79,7 @@ using MySql.Data.MySqlClient;
  * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-namespace CentralRepositoryAuthPayments // xList
+namespace Azotus
 {
     public class Defns
     {
