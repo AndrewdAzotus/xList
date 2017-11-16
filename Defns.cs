@@ -1,3 +1,8 @@
+#define MSSQL
+#if (MSSQL == false)
+#define MySQL
+#endif
+
 namespace azotus
 {
   public class Defns
