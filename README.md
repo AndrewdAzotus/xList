@@ -1,13 +1,9 @@
 # xList
-External Lists of simple data forms 
+External Lists of simple data sets
 
 Required:
 ---------
 adDBDefns
-
-Notes:
-------
-This is not the latest version, but will be updated shortly.
 
 Information:
 ------------
