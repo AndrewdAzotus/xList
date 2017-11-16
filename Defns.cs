@@ -36,4 +36,33 @@ namespace azotus
       _dbPort = dbPort;
     }
   }
+  
+  public String CxnDtls()
+  {
+    string strCxn = "";
+
+    strCxn += $"database={_dbName};";
+    strCxn += "user=" + _dbUser + ";";
+    strCxn += "password=" + _dbPswd + ";";
+    strCxn += "server=" + _dbSrvr + ";";
+    if (_dbPort >= 0)
+      strCxn += "port=" + _dbPort.ToString() + ";";
+    return strCxn;
+  }
+  
+  public string CxnDtls(string databaseName)
+  {
+    if (databaseName == "") { databaseName = _dbName; }
+    string strCxn = "";
+    if (databaseName != "")
+    {
+      strCxn += "database=" + databaseName + ";";
+      strCxn += "user=" + _dbUser + ";";
+      strCxn += "password=" + _dbPswd + ";";
+      strCxn += "server=" + _dbSrvr + ";";
+      if (_dbPort >= 0)
+        strCxn += "port=" + _dbPort.ToString() + ";";
+    }
+    return strCxn;
+  }
 }
